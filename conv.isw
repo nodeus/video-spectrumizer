@@ -1,0 +1,157 @@
+{
+    "About": {
+        "WhatIsThis": "Image Spectrumizer 4.0 workspace file",
+        "Magic": "0x50534D49",
+        "Version": 4
+    },
+    "Config": {
+        "gWindowAbout": 0,
+        "gWindowAttribBitmap": 0,
+        "gWindowHelp": 0,
+        "gWindowHistograms": 0,
+        "gWindowModifierPalette": 1,
+        "gWindowOptions": 0,
+        "gWindowZoomedOutput": 0,
+        "gWindowZoomedModified": 0,
+        "gWindowZoomedInput": 0,
+        "gOptShowOriginal": 1,
+        "gOptShowModified": 1,
+        "gOptShowResult": 1,
+        "gOptImagesDocked": 1,
+        "gOptTrackFile": 1,
+        "gDeviceId": 0
+    },
+    "Device": {
+        "Name": "ZXSpectrum",
+        "mOptAttribOrder": 0,
+        "mOptBright": 0.500000,
+        "mOptPaper": 0,
+        "mOptCellSize": 0,
+        "mOptScreenOrder": 1,
+        "mOptWidthCells": 32,
+        "mOptHeightCells": 24,
+        "mOptConversionMode": 0,
+        "mOptPivotBias": 0.500000
+    },
+    "Stack": {
+        "Item[0]": {
+            "Name": "Curve",
+            "Type": 14,
+            "mEnabled": 1,
+            "mR_en": 1,
+            "mG_en": 1,
+            "mB_en": 1,
+            "mPoints[0]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[1]": {
+                "x": 0.173333,
+                "y": 0.135000
+            },
+            "mPoints[2]": {
+                "x": 0.296667,
+                "y": 0.295000
+            },
+            "mPoints[3]": {
+                "x": 0.431667,
+                "y": 0.550000
+            },
+            "mPoints[4]": {
+                "x": 0.600000,
+                "y": 0.755000
+            },
+            "mPoints[5]": {
+                "x": 0.776667,
+                "y": 0.855000
+            },
+            "mPoints[6]": {
+                "x": 1,
+                "y": 1
+            },
+            "mPoints[7]": {
+                "x": -1,
+                "y": 0
+            },
+            "mPoints[8]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[9]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[10]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[11]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[12]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[13]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[14]": {
+                "x": 0,
+                "y": 0
+            },
+            "mPoints[15]": {
+                "x": 0,
+                "y": 0
+            }
+        },
+        "Item[1]": {
+            "Name": "Quantize",
+            "Type": 12,
+            "mEnabled": 1,
+            "mR_en": 1,
+            "mG_en": 1,
+            "mB_en": 1,
+            "mV": 0.146000,
+            "mLevels": 3,
+            "mScale": 0.818000,
+            "mNudge": 0.143000,
+            "mRange": 1.286000
+        },
+        "Item[2]": {
+            "Name": "OrderedDither",
+            "Type": 6,
+            "mEnabled": 1,
+            "mR_en": 1,
+            "mG_en": 1,
+            "mB_en": 1,
+            "mV": 1.248000,
+            "mXOfs": 2,
+            "mYOfs": 2,
+            "mMatrix": 3
+        },
+        "Item[3]": {
+            "Name": "Contrast",
+            "Type": 8,
+            "mEnabled": 1,
+            "mR_en": 1,
+            "mG_en": 1,
+            "mB_en": 1,
+            "mC": 3.772000,
+            "mB": 0.288000,
+            "mP": 0.280000
+        },
+        "Item[4]": {
+            "Name": "HSV",
+            "Type": 4,
+            "mEnabled": 1,
+            "mR_en": 1,
+            "mG_en": 1,
+            "mB_en": 1,
+            "mH": -35.240002,
+            "mS": 0.357000,
+            "mV": 0.035000
+        }
+    }
+}
