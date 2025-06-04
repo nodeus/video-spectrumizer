@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"gopkg.in/ini.v1"
 )
@@ -31,6 +32,7 @@ type Config struct {
 	ResizeWidth   int     `ini:"width"`
 	ResizeHeight  int     `ini:"height"`
 	ShowFFmpegOut bool    `ini:"verbose-ffmpeg"`
+	ShowProgress  bool    `ini:"progress"` // Новый параметр для отображения прогресса
 }
 
 const defaultConfigFile = "config.ini"
@@ -66,21 +68,26 @@ func main() {
 	createDir(processedDir)
 
 	log.Println("Извлечение аудиодорожки...")
+	fmt.Println()
 	extractAudio(config.InputVideo, filepath.Join(config.TempDir, "sound.wav"), config)
 
 	log.Println("Изменение размера видео...")
+	fmt.Println()
 	resizedVideo := filepath.Join(config.TempDir, "resized.mp4")
 	resizeVideo(config.InputVideo, resizedVideo, config.ResizeWidth, config.ResizeHeight, config)
 
 	log.Println("Разбивка видео на кадры...")
+	fmt.Println()
 	extractFrames(resizedVideo, frameDir, config.Framerate, config)
 
 	if config.PauseBefore {
 		fmt.Println("\nПауза для настройки конвертера. Нажмите Enter для продолжения...")
+		fmt.Println()
 		bufio.NewReader(os.Stdin).ReadBytes('\n')
 	}
 
 	log.Println("Обработка кадров для Spectrum...")
+	fmt.Println()
 	processFrames(frameDir, processedDir, config)
 
 	log.Println("Сборка финального видео...")
@@ -90,10 +97,12 @@ func main() {
 		config.OutputVideo,
 		config,
 	)
+	fmt.Println()
 
 	if config.DeleteTemp {
 		log.Println("Очистка временных файлов...")
 		os.RemoveAll(config.TempDir)
+		fmt.Println()
 	}
 
 	log.Println("Обработка завершена!")
@@ -113,9 +122,10 @@ func loadDefaultConfig() *Config {
 		DeleteTemp:    true,
 		PauseBefore:   true,
 		Threads:       runtime.NumCPU(),
-		ResizeWidth:   -1,
+		ResizeWidth:   256,
 		ResizeHeight:  192,
 		ShowFFmpegOut: true,
+		ShowProgress:  true, // По умолчанию показываем прогресс
 	}
 }
 
@@ -150,6 +160,7 @@ func parseFlags(config *Config) {
 	flag.IntVar(&config.ResizeWidth, "width", config.ResizeWidth, "Ширина после ресайза")
 	flag.IntVar(&config.ResizeHeight, "height", config.ResizeHeight, "Высота после ресайза")
 	flag.BoolVar(&config.ShowFFmpegOut, "verbose-ffmpeg", config.ShowFFmpegOut, "Показывать вывод FFmpeg")
+	flag.BoolVar(&config.ShowProgress, "progress", config.ShowProgress, "Показывать прогресс обработки")
 
 	// Специальный флаг для указания конфиг-файла (не сохраняется в структуре)
 	var configFile string
@@ -215,11 +226,12 @@ func extractAudio(input, output string, config *Config) {
 	runCommand("ffmpeg", args, config)
 }
 
+// -vf scale заменена на пробную универсальную функцию масштабирования
 func resizeVideo(input, output string, width, height int, config *Config) {
 	args := []string{
 		"-loglevel", "error",
 		"-i", input,
-		"-vf", fmt.Sprintf("scale=%d:%d", width, height),
+		"-vf", fmt.Sprintf("scale=w=%d:h=%d:force_original_aspect_ratio=decrease, pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=black", width, height, width, height, width, height),
 		"-c:a", "copy",
 		"-y",
 		output,
@@ -248,9 +260,51 @@ func processFrames(inputDir, outputDir string, config *Config) {
 		log.Fatalf("Ошибка поиска файлов: %v", err)
 	}
 
+	totalFrames := len(files)
+	if totalFrames == 0 {
+		log.Fatal("Не найдены кадры для обработки")
+	}
+
+	log.Printf("Начата обработка %d кадров...", totalFrames)
+	startTime := time.Now()
+
+	// Счетчик для отслеживания прогресса
+	var processedCount int
+	var progressMutex sync.Mutex
+
+	// Канал для ошибок
+	errorChan := make(chan error, len(files))
+
+	// Запускаем горутину для отображения прогресса
+	progressQuit := make(chan struct{})
+	if config.ShowProgress {
+		go func() {
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					progressMutex.Lock()
+					current := processedCount
+					progressMutex.Unlock()
+
+					percent := float64(current) / float64(totalFrames) * 100
+					elapsed := time.Since(startTime).Round(time.Second)
+
+					log.Printf("\rПрогресс: %d/%d (%.1f%%) | Время: %v",
+						current, totalFrames, percent, elapsed, "                    ")
+
+				case <-progressQuit:
+					fmt.Println()
+					return
+				}
+			}
+		}()
+	}
+
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, config.Threads)
-	errorChan := make(chan error, len(files))
 
 	for _, file := range files {
 		wg.Add(1)
@@ -272,15 +326,41 @@ func processFrames(inputDir, outputDir string, config *Config) {
 
 			if output, err := cmd.CombinedOutput(); err != nil {
 				errorChan <- fmt.Errorf("ошибка обработки %s: %v\n%s", inputFile, err, string(output))
+			} else {
+				// Увеличиваем счетчик обработанных кадров
+				progressMutex.Lock()
+				processedCount++
+				progressMutex.Unlock()
 			}
 		}(file)
 	}
 
 	wg.Wait()
+
+	// Останавливаем отображение прогресса
+	if config.ShowProgress {
+		close(progressQuit)
+	}
+
 	close(errorChan)
 
+	// Выводим ошибки, если они есть
+	hasErrors := false
 	for err := range errorChan {
 		log.Println(err)
+		hasErrors = true
+	}
+
+	// Финальный отчет
+	elapsed := time.Since(startTime).Round(time.Second)
+	fps := float64(totalFrames) / time.Since(startTime).Seconds()
+
+	log.Printf("Обработка завершена: %d/%d кадров | Затрачено: %v | Скорость: %.1f fps",
+		processedCount, totalFrames, elapsed, fps)
+	fmt.Println()
+
+	if hasErrors {
+		log.Println("Были ошибки при обработке некоторых кадров")
 	}
 }
 
@@ -343,6 +423,7 @@ func runCommand(name string, args []string, config *Config) {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		log.Printf("Выполнение: %s %s", name, strings.Join(args, " "))
+		fmt.Println()
 	} else {
 		cmd.Stdout = nil
 		cmd.Stderr = nil
