@@ -16,7 +16,10 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-var Version string
+var (
+	version   string
+	timeStamp string
+)
 
 type Config struct {
 	InputVideo    string  `ini:"input"`
@@ -41,7 +44,12 @@ const defaultConfigFile = "config.ini"
 
 func main() {
 	// Выводим версию приложения
-	fmt.Printf("App Version: %s\n", Version)
+	timeStamp := time.Now()
+
+	fmt.Println("Running version : ", version)
+	fmt.Println("Build time: ", timeStamp)
+	fmt.Println()
+	
 	// Предварительная обработка флага -config
 	configFile := defaultConfigFile
 	if len(os.Args) > 1 {
