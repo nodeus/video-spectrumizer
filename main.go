@@ -16,6 +16,8 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+var Version string
+
 type Config struct {
 	InputVideo    string  `ini:"input"`
 	OutputVideo   string  `ini:"output"`
@@ -38,6 +40,8 @@ type Config struct {
 const defaultConfigFile = "config.ini"
 
 func main() {
+	// Выводим версию приложения
+	fmt.Printf("App Version: %s\n", Version)
 	// Предварительная обработка флага -config
 	configFile := defaultConfigFile
 	if len(os.Args) > 1 {
@@ -267,6 +271,7 @@ func processFrames(inputDir, outputDir string, config *Config) {
 
 	log.Printf("Начата обработка %d кадров...", totalFrames)
 	startTime := time.Now()
+	fmt.Println()
 
 	// Счетчик для отслеживания прогресса
 	var processedCount int
@@ -292,8 +297,8 @@ func processFrames(inputDir, outputDir string, config *Config) {
 					percent := float64(current) / float64(totalFrames) * 100
 					elapsed := time.Since(startTime).Round(time.Second)
 
-					log.Printf("\rПрогресс: %d/%d (%.1f%%) | Время: %v",
-						current, totalFrames, percent, elapsed, "                    ")
+					fmt.Printf("\rПрогресс: %d/%d (%.1f%%) | Время: %v        ",
+						current, totalFrames, percent, elapsed)
 
 				case <-progressQuit:
 					fmt.Println()
@@ -370,7 +375,7 @@ func encodeVideo(audioFile, framesDir, output string, config *Config) {
 	framePattern = strings.ReplaceAll(framePattern, "\\", "/") // FFmpeg требует / даже в Windows
 
 	args := []string{
-		"-loglevel", "error",
+		"-loglevel", "panic",
 		"-y",
 		"-i", audioFile,
 		"-framerate", fmt.Sprintf("%.2f", config.Framerate),
