@@ -4,7 +4,9 @@
 ### Использование программы:
 #### Базовое использование
 video-spectrumizer.exe -input video-input.mp4
+
 video-spectrumizer.exe -input video-input.mp4 -output video-out.mp4
+
 video-spectrumizer.exe -input video-input.mp4 -output video-out.mp4 -scale 8
 
 #### Расширенный пример
