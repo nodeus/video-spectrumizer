@@ -17,22 +17,22 @@ import (
 )
 
 type Config struct {
-	InputVideo    string `ini:"input"`
-	OutputVideo   string `ini:"output"`
-	TempDir       string `ini:"temp"`
+	InputVideo    string  `ini:"input"`
+	OutputVideo   string  `ini:"output"`
+	TempDir       string  `ini:"temp"`
 	Framerate     float64 `ini:"fps"`
-	ScaleFactor   int `ini:"scale"`
-	AudioBitrate  string `ini:"audio-bitrate"`
-	EncoderType   string `ini:"encoder"`
-	ConfigFile    string `ini:"config"`
-	ImgConverter  string `ini:"converter"`
-	DeleteTemp    bool `ini:"cleanup"`
-	PauseBefore   bool `ini:"pause"`
-	Threads       int `ini:"threads"`
-	ResizeWidth   int `ini:"width"`
-	ResizeHeight  int `ini:"height"`
-	ShowFFmpegOut bool `ini:"verbose-ffmpeg"`
-	ShowProgress  bool `ini:"progress"` // Новый параметр для отображения прогресса
+	ScaleFactor   int     `ini:"scale"`
+	AudioBitrate  string  `ini:"audio-bitrate"`
+	EncoderType   string  `ini:"encoder"`
+	ConfigFile    string  `ini:"config"`
+	ImgConverter  string  `ini:"converter"`
+	DeleteTemp    bool    `ini:"cleanup"`
+	PauseBefore   bool    `ini:"pause"`
+	Threads       int     `ini:"threads"`
+	ResizeWidth   int     `ini:"width"`
+	ResizeHeight  int     `ini:"height"`
+	ShowFFmpegOut bool    `ini:"verbose-ffmpeg"`
+	ShowProgress  bool    `ini:"progress"` // Новый параметр для отображения прогресса
 }
 
 const defaultConfigFile = "config.ini"
@@ -158,7 +158,7 @@ func parseFlags(config *Config) {
 	// Специальный флаг для указания конфиг-файла (не сохраняется в структуре)
 	var configFile string
 	flag.StringVar(&configFile, "config-file", defaultConfigFile, "Путь к INI-конфигу")
-	
+
 	flag.Parse()
 }
 
@@ -219,13 +219,12 @@ func extractAudio(input, output string, config *Config) {
 	runCommand("ffmpeg", args, config)
 }
 
-
 // -vf scale заменена на пробную универсальную функцию масштабирования
 func resizeVideo(input, output string, width, height int, config *Config) {
 	args := []string{
 		"-loglevel", "error",
 		"-i", input,
-		"-vf", fmt.Sprintf("scale=w=%d:h=%d:force_original_aspect_ratio=decrease, pad=%d:%d(%d-iw)/2:(%d-ih)/2:color=black", width, height, width, height, width, height),
+		"-vf", fmt.Sprintf("scale=w=%d:h=%d:force_original_aspect_ratio=decrease, pad=%d:%d:(%d-iw)/2:(%d-ih)/2:color=black", width, height, width, height, width, height),
 		"-c:a", "copy",
 		"-y",
 		output,
@@ -268,27 +267,27 @@ func processFrames(inputDir, outputDir string, config *Config) {
 
 	// Канал для ошибок
 	errorChan := make(chan error, len(files))
-	
+
 	// Запускаем горутину для отображения прогресса
 	progressQuit := make(chan struct{})
 	if config.ShowProgress {
 		go func() {
 			ticker := time.NewTicker(2 * time.Second)
 			defer ticker.Stop()
-			
+
 			for {
 				select {
 				case <-ticker.C:
 					progressMutex.Lock()
 					current := processedCount
 					progressMutex.Unlock()
-					
+
 					percent := float64(current) / float64(totalFrames) * 100
 					elapsed := time.Since(startTime).Round(time.Second)
-					
-					log.Printf("Прогресс: %d/%d (%.1f%%) | Затрачено: %v", 
+
+					log.Printf("Прогресс: %d/%d (%.1f%%) | Затрачено: %v",
 						current, totalFrames, percent, elapsed)
-					
+
 				case <-progressQuit:
 					return
 				}
@@ -329,7 +328,7 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	}
 
 	wg.Wait()
-	
+
 	// Останавливаем отображение прогресса
 	if config.ShowProgress {
 		close(progressQuit)
@@ -347,10 +346,10 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	// Финальный отчет
 	elapsed := time.Since(startTime).Round(time.Second)
 	fps := float64(totalFrames) / time.Since(startTime).Seconds()
-	
-	log.Printf("Обработка завершена: %d/%d кадров | Затрачено: %v | Скорость: %.1f fps", 
+
+	log.Printf("Обработка завершена: %d/%d кадров | Затрачено: %v | Скорость: %.1f fps",
 		processedCount, totalFrames, elapsed, fps)
-	
+
 	if hasErrors {
 		log.Println("Были ошибки при обработке некоторых кадров")
 	}
