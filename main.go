@@ -1,6 +1,7 @@
 package main
 
 import (
+
 	"bufio"
 	"flag"
 	"fmt"
@@ -17,8 +18,9 @@ import (
 )
 
 var (
-	version   string
-	timeStamp string
+	Version	= "dev"
+	BuildUser = "nd"
+	BuildTime = "2025"
 )
 
 type Config struct {
@@ -44,10 +46,10 @@ const defaultConfigFile = "config.ini"
 
 func main() {
 	// Выводим версию приложения
-	timeStamp := time.Now()
-
-	fmt.Println("Running version : ", version)
-	fmt.Println("Build time: ", timeStamp)
+	fmt.Println("Video spectrumizer", Version, "\n")
+	//fmt.Println("Version:\t", Version)
+	fmt.Println("Build time:", BuildTime)
+	fmt.Println("Build user:", BuildUser)
 	fmt.Println()
 	
 	// Предварительная обработка флага -config
