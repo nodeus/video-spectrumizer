@@ -81,9 +81,20 @@ func main() {
 	createDir(frameDir)
 	createDir(processedDir)
 
-	log.Println("Извлечение аудиодорожки...")
-	fmt.Println()
-	extractAudio(config.InputVideo, filepath.Join(config.TempDir, "sound.wav"), config)
+	var hasAudio bool
+
+    log.Println("Проверка наличия аудиодорожки...")
+    hasAudio = checkAudioExists(config.InputVideo, config)
+    fmt.Println()
+
+    if hasAudio {
+        log.Println("Извлечение аудиодорожки...")
+        fmt.Println()
+        extractAudio(config.InputVideo, filepath.Join(config.TempDir, "sound.wav"), config)
+    } else {
+        log.Println("Аудиодорожка не обнаружена, видео будет создано без звука")
+        fmt.Println()
+    }
 
 	log.Println("Изменение размера видео...")
 	fmt.Println()
@@ -104,14 +115,15 @@ func main() {
 	fmt.Println()
 	processFrames(frameDir, processedDir, config)
 
-	log.Println("Сборка финального видео...")
-	encodeVideo(
-		filepath.Join(config.TempDir, "sound.wav"),
-		processedDir,
-		config.OutputVideo,
-		config,
-	)
-	fmt.Println()
+    log.Println("Сборка финального видео...")
+    encodeVideo(
+        filepath.Join(config.TempDir, "sound.wav"),
+        hasAudio, // Передаем флаг наличия аудио
+        processedDir,
+        config.OutputVideo,
+        config,
+    )
+    fmt.Println()
 
 	if config.DeleteTemp {
 		log.Println("Очистка временных файлов...")
@@ -120,6 +132,25 @@ func main() {
 	}
 
 	log.Println("Обработка завершена!")
+}
+
+// Функция для проверки наличия аудио необходимо наличие ffbrobe по пути
+func checkAudioExists(input string, config *Config) bool {
+    args := []string{
+        "-i", input,
+        "-show_entries", "stream=codec_type",
+        "-of", "csv=p=0",
+        "-loglevel", "error",
+    }
+
+    cmd := exec.Command("ffprobe", args...)
+    output, err := cmd.CombinedOutput()
+    if err != nil {
+        log.Printf("Ошибка проверки аудио: %v", err)
+        return false
+    }
+
+    return strings.Contains(string(output), "audio")
 }
 
 func loadDefaultConfig() *Config {
@@ -226,18 +257,19 @@ func createDir(path string) {
 	}
 }
 
-func extractAudio(input, output string, config *Config) {
-	args := []string{
-		"-loglevel", "error",
-		"-i", input,
-		"-vn",
-		"-acodec", "pcm_s16le",
-		"-ar", "44100",
-		"-ac", "2",
-		"-y",
-		output,
-	}
-	runCommand("ffmpeg", args, config)
+// Извлечение аудио с возвратом ошибки
+func extractAudio(input, output string, config *Config) error {
+    args := []string{
+        "-loglevel", "error",
+        "-i", input,
+        "-vn",
+        "-acodec", "pcm_s16le",
+        "-ar", "44100",
+        "-ac", "2",
+        "-y",
+        output,
+    }
+    return runCommand("ffmpeg", args, config)
 }
 
 // -vf scale заменена на пробную универсальную функцию масштабирования
@@ -379,26 +411,38 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	}
 }
 
-func encodeVideo(audioFile, framesDir, output string, config *Config) {
-	// Создаем шаблон с правильным разделителем
-	framePattern := filepath.Join(framesDir, "s%06d.png")
-	framePattern = strings.ReplaceAll(framePattern, "\\", "/") // FFmpeg требует / даже в Windows
+func encodeVideo(audioFile string, hasAudio bool, framesDir, output string, config *Config) {
+    framePattern := filepath.Join(framesDir, "s%06d.png")
+    framePattern = strings.ReplaceAll(framePattern, "\\", "/")
 
-	args := []string{
-		"-loglevel", "panic",
-		"-y",
-		"-i", audioFile,
-		"-framerate", fmt.Sprintf("%.2f", config.Framerate),
-		"-i", framePattern,
-		"-vf", fmt.Sprintf("scale=iw*%d:ih*%d", config.ScaleFactor, config.ScaleFactor),
-		"-sws_flags", "neighbor",
-		"-sws_dither", "none",
-		"-c:a", "aac",
-		"-b:a", config.AudioBitrate,
-		"-profile:a", "aac_low",
-		"-movflags", "+faststart",
-		"-flags", "+cgop",
-	}
+    args := []string{
+        "-loglevel", "panic",
+        "-y",
+        "-framerate", fmt.Sprintf("%.2f", config.Framerate),
+        "-i", framePattern,
+        "-vf", fmt.Sprintf("scale=iw*%d:ih*%d", config.ScaleFactor, config.ScaleFactor),
+        "-sws_flags", "neighbor",
+        "-sws_dither", "none",
+    }
+
+	// Добавляем аудио только если оно есть
+    if hasAudio {
+        args = append([]string{"-i", audioFile}, args...)
+        args = append(args,
+            "-c:a", "aac",
+            "-b:a", config.AudioBitrate,
+            "-profile:a", "aac_low",
+        )
+    } else {
+        // Явно указываем отсутствие аудио
+        args = append(args, "-an")
+    }
+
+    // Общие параметры
+    args = append(args,
+        "-movflags", "+faststart",
+        "-flags", "+cgop",
+    )
 
 	switch strings.ToLower(config.EncoderType) {
 	case "nvidia":
@@ -431,20 +475,21 @@ func encodeVideo(audioFile, framesDir, output string, config *Config) {
 	runCommand("ffmpeg", args, config)
 }
 
-func runCommand(name string, args []string, config *Config) {
-	cmd := exec.Command(name, args...)
+func runCommand(name string, args []string, config *Config) error {
+    cmd := exec.Command(name, args...)
 
-	if config.ShowFFmpegOut {
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		log.Printf("Выполнение: %s %s", name, strings.Join(args, " "))
-		fmt.Println()
-	} else {
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-	}
+    if config.ShowFFmpegOut {
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        log.Printf("Выполнение: %s %s", name, strings.Join(args, " "))
+        fmt.Println()
+    } else {
+        cmd.Stdout = nil
+        cmd.Stderr = nil
+    }
 
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("Ошибка выполнения команды:\n%s %s\n%v", name, strings.Join(args, " "), err)
-	}
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("ошибка выполнения команды:\n%s %s\n%v", name, strings.Join(args, " "), err)
+    }
+    return nil
 }
