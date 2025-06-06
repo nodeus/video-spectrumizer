@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	Version   = "v1.0.2"
+	Version   = "v1.0.3"
 	BuildUser = "nodeus"
 	BuildTime = "2025"
 )
@@ -83,8 +83,11 @@ func main() {
 		config.OutputVideo = filepath.Join(dir, name+"_smzd"+ext)
 	}
 
-	// Получаем абсолютные пути для всех компонентов
+	// Преобразуем пути в абсолютные
 	config = resolvePaths(config)
+
+	// Валидация конфигурации
+	validateConfig(config)
 
 	frameDir := filepath.Join(config.TempDir, "frames")
 	processedDir := filepath.Join(config.TempDir, "processed")
@@ -249,9 +252,16 @@ func resolvePaths(config *Config) *Config {
 }
 
 func validateConfig(config *Config) {
+	// Проверяем обязательный параметр
 	if config.InputVideo == "" {
 		log.Fatal("Ошибка: Не указан входной файл")
 	}
+
+	// Проверяем существование входного файла
+	if _, err := os.Stat(config.InputVideo); os.IsNotExist(err) {
+		log.Fatalf("Входной файл не найден: %s", config.InputVideo)
+	}
+
 	if config.Threads < 1 {
 		config.Threads = runtime.NumCPU()
 	}
@@ -260,6 +270,15 @@ func validateConfig(config *Config) {
 	if _, err := os.Stat(config.ImgConverter); os.IsNotExist(err) {
 		log.Fatalf("Конвертер не найден: %s", config.ImgConverter)
 	}
+
+	// Дополнительная проверка для FFmpeg/FFprobe
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		log.Fatal("FFmpeg не найден в PATH. Убедитесь, что FFmpeg установлен")
+	}
+	if _, err := exec.LookPath("ffprobe"); err != nil {
+		log.Fatal("FFprobe не найден в PATH. Убедитесь, что FFmpeg установлен")
+	}
+
 }
 
 func createDir(path string) {
