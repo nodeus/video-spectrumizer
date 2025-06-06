@@ -1,7 +1,6 @@
 package main
 
 import (
-
 	"bufio"
 	"flag"
 	"fmt"
@@ -18,8 +17,8 @@ import (
 )
 
 var (
-	Version	= "dev"
-	BuildUser = "nd"
+	Version   = "v1.0.2"
+	BuildUser = "nodeus"
 	BuildTime = "2025"
 )
 
@@ -51,7 +50,7 @@ func main() {
 	fmt.Println("Build time:", BuildTime)
 	fmt.Println("Build user:", BuildUser)
 	fmt.Println()
-	
+
 	// Предварительная обработка флага -config
 	configFile := defaultConfigFile
 	if len(os.Args) > 1 {
@@ -73,6 +72,17 @@ func main() {
 	}
 	parseFlags(config)
 
+	// Генерация выходного пути если output пустой
+	if config.OutputVideo == "" && config.InputVideo != "" {
+		// Получаем путь и расширение входного файла
+		dir := filepath.Dir(config.InputVideo)
+		base := filepath.Base(config.InputVideo)
+		ext := filepath.Ext(base)
+		name := strings.TrimSuffix(base, ext)
+		// Добавляем постфикс
+		config.OutputVideo = filepath.Join(dir, name+"_smzd"+ext)
+	}
+
 	// Получаем абсолютные пути для всех компонентов
 	config = resolvePaths(config)
 
@@ -83,18 +93,18 @@ func main() {
 
 	var hasAudio bool
 
-    log.Println("Проверка наличия аудиодорожки...")
-    hasAudio = checkAudioExists(config.InputVideo, config)
-    fmt.Println()
+	log.Println("Проверка наличия аудиодорожки...")
+	hasAudio = checkAudioExists(config.InputVideo, config)
+	fmt.Println()
 
-    if hasAudio {
-        log.Println("Извлечение аудиодорожки...")
-        fmt.Println()
-        extractAudio(config.InputVideo, filepath.Join(config.TempDir, "sound.wav"), config)
-    } else {
-        log.Println("Аудиодорожка не обнаружена, видео будет создано без звука")
-        fmt.Println()
-    }
+	if hasAudio {
+		log.Println("Извлечение аудиодорожки...")
+		fmt.Println()
+		extractAudio(config.InputVideo, filepath.Join(config.TempDir, "sound.wav"), config)
+	} else {
+		log.Println("Аудиодорожка не обнаружена, видео будет создано без звука")
+		fmt.Println()
+	}
 
 	log.Println("Изменение размера видео...")
 	fmt.Println()
@@ -115,15 +125,15 @@ func main() {
 	fmt.Println()
 	processFrames(frameDir, processedDir, config)
 
-    log.Println("Сборка финального видео...")
-    encodeVideo(
-        filepath.Join(config.TempDir, "sound.wav"),
-        hasAudio, // Передаем флаг наличия аудио
-        processedDir,
-        config.OutputVideo,
-        config,
-    )
-    fmt.Println()
+	log.Println("Сборка финального видео...")
+	encodeVideo(
+		filepath.Join(config.TempDir, "sound.wav"),
+		hasAudio, // Передаем флаг наличия аудио
+		processedDir,
+		config.OutputVideo,
+		config,
+	)
+	fmt.Println()
 
 	if config.DeleteTemp {
 		log.Println("Очистка временных файлов...")
@@ -136,27 +146,27 @@ func main() {
 
 // Функция для проверки наличия аудио необходимо наличие ffbrobe по пути
 func checkAudioExists(input string, config *Config) bool {
-    args := []string{
-        "-i", input,
-        "-show_entries", "stream=codec_type",
-        "-of", "csv=p=0",
-        "-loglevel", "error",
-    }
+	args := []string{
+		"-i", input,
+		"-show_entries", "stream=codec_type",
+		"-of", "csv=p=0",
+		"-loglevel", "error",
+	}
 
-    cmd := exec.Command("ffprobe", args...)
-    output, err := cmd.CombinedOutput()
-    if err != nil {
-        log.Printf("Ошибка проверки аудио: %v", err)
-        return false
-    }
+	cmd := exec.Command("ffprobe", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Ошибка проверки аудио: %v", err)
+		return false
+	}
 
-    return strings.Contains(string(output), "audio")
+	return strings.Contains(string(output), "audio")
 }
 
 func loadDefaultConfig() *Config {
 	return &Config{
 		InputVideo:    "",
-		OutputVideo:   "video-out.mp4",
+		OutputVideo:   "",
 		TempDir:       "temp",
 		Framerate:     25.0,
 		ScaleFactor:   8,
@@ -191,7 +201,8 @@ func loadIniConfig(filename string, config *Config) error {
 
 func parseFlags(config *Config) {
 	flag.StringVar(&config.InputVideo, "input", config.InputVideo, "Входной видеофайл (обязательно)")
-	flag.StringVar(&config.OutputVideo, "output", config.OutputVideo, "Выходной видеофайл")
+	flag.StringVar(&config.OutputVideo, "output", "", "Выходной видеофайл") // Убрано значение по умолчанию
+	//flag.StringVar(&config.OutputVideo, "output", config.OutputVideo, "Выходной видеофайл")
 	flag.StringVar(&config.TempDir, "temp", config.TempDir, "Директория для временных файлов")
 	flag.Float64Var(&config.Framerate, "fps", config.Framerate, "Частота кадров")
 	flag.IntVar(&config.ScaleFactor, "scale", config.ScaleFactor, "Масштаб увеличения")
@@ -259,17 +270,17 @@ func createDir(path string) {
 
 // Извлечение аудио с возвратом ошибки
 func extractAudio(input, output string, config *Config) error {
-    args := []string{
-        "-loglevel", "error",
-        "-i", input,
-        "-vn",
-        "-acodec", "pcm_s16le",
-        "-ar", "44100",
-        "-ac", "2",
-        "-y",
-        output,
-    }
-    return runCommand("ffmpeg", args, config)
+	args := []string{
+		"-loglevel", "error",
+		"-i", input,
+		"-vn",
+		"-acodec", "pcm_s16le",
+		"-ar", "44100",
+		"-ac", "2",
+		"-y",
+		output,
+	}
+	return runCommand("ffmpeg", args, config)
 }
 
 // -vf scale заменена на пробную универсальную функцию масштабирования
@@ -412,37 +423,37 @@ func processFrames(inputDir, outputDir string, config *Config) {
 }
 
 func encodeVideo(audioFile string, hasAudio bool, framesDir, output string, config *Config) {
-    framePattern := filepath.Join(framesDir, "s%06d.png")
-    framePattern = strings.ReplaceAll(framePattern, "\\", "/")
+	framePattern := filepath.Join(framesDir, "s%06d.png")
+	framePattern = strings.ReplaceAll(framePattern, "\\", "/")
 
-    args := []string{
-        "-loglevel", "panic",
-        "-y",
-        "-framerate", fmt.Sprintf("%.2f", config.Framerate),
-        "-i", framePattern,
-        "-vf", fmt.Sprintf("scale=iw*%d:ih*%d", config.ScaleFactor, config.ScaleFactor),
-        "-sws_flags", "neighbor",
-        "-sws_dither", "none",
-    }
+	args := []string{
+		"-loglevel", "panic",
+		"-y",
+		"-framerate", fmt.Sprintf("%.2f", config.Framerate),
+		"-i", framePattern,
+		"-vf", fmt.Sprintf("scale=iw*%d:ih*%d", config.ScaleFactor, config.ScaleFactor),
+		"-sws_flags", "neighbor",
+		"-sws_dither", "none",
+	}
 
 	// Добавляем аудио только если оно есть
-    if hasAudio {
-        args = append([]string{"-i", audioFile}, args...)
-        args = append(args,
-            "-c:a", "aac",
-            "-b:a", config.AudioBitrate,
-            "-profile:a", "aac_low",
-        )
-    } else {
-        // Явно указываем отсутствие аудио
-        args = append(args, "-an")
-    }
+	if hasAudio {
+		args = append([]string{"-i", audioFile}, args...)
+		args = append(args,
+			"-c:a", "aac",
+			"-b:a", config.AudioBitrate,
+			"-profile:a", "aac_low",
+		)
+	} else {
+		// Явно указываем отсутствие аудио
+		args = append(args, "-an")
+	}
 
-    // Общие параметры
-    args = append(args,
-        "-movflags", "+faststart",
-        "-flags", "+cgop",
-    )
+	// Общие параметры
+	args = append(args,
+		"-movflags", "+faststart",
+		"-flags", "+cgop",
+	)
 
 	switch strings.ToLower(config.EncoderType) {
 	case "nvidia":
@@ -476,20 +487,20 @@ func encodeVideo(audioFile string, hasAudio bool, framesDir, output string, conf
 }
 
 func runCommand(name string, args []string, config *Config) error {
-    cmd := exec.Command(name, args...)
+	cmd := exec.Command(name, args...)
 
-    if config.ShowFFmpegOut {
-        cmd.Stdout = os.Stdout
-        cmd.Stderr = os.Stderr
-        log.Printf("Выполнение: %s %s", name, strings.Join(args, " "))
-        fmt.Println()
-    } else {
-        cmd.Stdout = nil
-        cmd.Stderr = nil
-    }
+	if config.ShowFFmpegOut {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		log.Printf("Выполнение: %s %s", name, strings.Join(args, " "))
+		fmt.Println()
+	} else {
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+	}
 
-    if err := cmd.Run(); err != nil {
-        return fmt.Errorf("ошибка выполнения команды:\n%s %s\n%v", name, strings.Join(args, " "), err)
-    }
-    return nil
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("ошибка выполнения команды:\n%s %s\n%v", name, strings.Join(args, " "), err)
+	}
+	return nil
 }
