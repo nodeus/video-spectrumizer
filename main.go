@@ -111,7 +111,7 @@ func main() {
 		bufio.NewReader(os.Stdin).ReadBytes('\n')
 	}
 
-	log.Println("Обработка кадров для Spectrum...")
+	log.Println("Обработка кадров для Spectrum конвертором...")
 	fmt.Println()
 	processFrames(frameDir, processedDir, config)
 
@@ -131,7 +131,7 @@ func main() {
 		fmt.Println()
 	}
 
-	log.Println("Обработка завершена!")
+	log.Println("Обработка видео завершена!")
 }
 
 // Функция для проверки наличия аудио необходимо наличие ffbrobe по пути
@@ -339,7 +339,7 @@ func processFrames(inputDir, outputDir string, config *Config) {
 					percent := float64(current) / float64(totalFrames) * 100
 					elapsed := time.Since(startTime).Round(time.Second)
 
-					fmt.Printf("\rПрогресс: %d/%d (%.1f%%) | Время: %v        ",
+					fmt.Printf("\rПрогресс: %d/%d (%.1f%%) | Время: %v  ",
 						current, totalFrames, percent, elapsed)
 
 				case <-progressQuit:
@@ -402,12 +402,12 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	elapsed := time.Since(startTime).Round(time.Second)
 	fps := float64(totalFrames) / time.Since(startTime).Seconds()
 
-	log.Printf("Обработка завершена: %d/%d кадров | Затрачено: %v | Скорость: %.1f fps",
+	log.Printf("\nОбработка завершена: %d/%d кадров | Затрачено: %v | Скорость: %.1f fps",
 		processedCount, totalFrames, elapsed, fps)
 	fmt.Println()
 
 	if hasErrors {
-		log.Println("Были ошибки при обработке некоторых кадров")
+		log.Println("\nБыли ошибки при обработке некоторых кадров")
 	}
 }
 
