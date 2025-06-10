@@ -10,8 +10,8 @@
         "gWindowHelp": 0,
         "gWindowHistograms": 0,
         "gWindowModifierPalette": 1,
-        "gWindowOptions": 0,
-        "gWindowZoomedOutput": 0,
+        "gWindowOptions": 1,
+        "gWindowZoomedOutput": 1,
         "gWindowZoomedModified": 0,
         "gWindowZoomedInput": 0,
         "gOptShowOriginal": 1,
@@ -24,10 +24,10 @@
     "Device": {
         "Name": "ZXSpectrum",
         "mOptAttribOrder": 0,
-        "mOptBright": 0.500000,
+        "mOptBright": 1,
         "mOptPaper": 0,
         "mOptCellSize": 0,
-        "mOptScreenOrder": 1,
+        "mOptScreenOrder": 0,
         "mOptWidthCells": 32,
         "mOptHeightCells": 24,
         "mOptConversionMode": 0,
@@ -35,35 +35,47 @@
     },
     "Stack": {
         "Item[0]": {
+            "Name": "ScalePos",
+            "Type": 1,
+            "mEnabled": 1,
+            "mR_en": 1,
+            "mG_en": 1,
+            "mB_en": 1,
+            "mX": -34,
+            "mY": -2,
+            "mHQ": 0,
+            "mScale": 0.269000
+        },
+        "Item[1]": {
             "Name": "Curve",
             "Type": 14,
-            "mEnabled": 1,
+            "mEnabled": 0,
             "mR_en": 1,
             "mG_en": 1,
             "mB_en": 1,
             "mPoints[0]": {
                 "x": 0,
-                "y": 0
+                "y": 0.010000
             },
             "mPoints[1]": {
-                "x": 0.173333,
-                "y": 0.135000
+                "x": 0.190000,
+                "y": 0.075000
             },
             "mPoints[2]": {
-                "x": 0.296667,
-                "y": 0.295000
+                "x": 0.335000,
+                "y": 0.220000
             },
             "mPoints[3]": {
-                "x": 0.431667,
-                "y": 0.550000
+                "x": 0.535000,
+                "y": 0.520000
             },
             "mPoints[4]": {
-                "x": 0.600000,
-                "y": 0.755000
+                "x": 0.731667,
+                "y": 0.695000
             },
             "mPoints[5]": {
-                "x": 0.776667,
-                "y": 0.855000
+                "x": 0.873333,
+                "y": 0.775000
             },
             "mPoints[6]": {
                 "x": 1,
@@ -106,52 +118,69 @@
                 "y": 0
             }
         },
-        "Item[1]": {
+        "Item[2]": {
             "Name": "Quantize",
             "Type": 12,
             "mEnabled": 1,
             "mR_en": 1,
             "mG_en": 1,
             "mB_en": 1,
-            "mV": 0.146000,
-            "mLevels": 3,
-            "mScale": 0.818000,
-            "mNudge": 0.143000,
-            "mRange": 1.286000
+            "mV": 0.731000,
+            "mLevels": 4,
+            "mScale": -0.441000,
+            "mNudge": -0.141000,
+            "mRange": 1.175000
         },
-        "Item[2]": {
+        "Item[3]": {
             "Name": "OrderedDither",
             "Type": 6,
             "mEnabled": 1,
             "mR_en": 1,
             "mG_en": 1,
             "mB_en": 1,
-            "mV": 1.248000,
-            "mXOfs": 2,
-            "mYOfs": 2,
-            "mMatrix": 3
+            "mV": 1.493000,
+            "mXOfs": 3,
+            "mYOfs": 3,
+            "mMatrix": 0
         },
-        "Item[3]": {
+        "Item[4]": {
             "Name": "Contrast",
             "Type": 8,
             "mEnabled": 1,
             "mR_en": 1,
             "mG_en": 1,
             "mB_en": 1,
-            "mC": 3.772000,
-            "mB": 0.288000,
-            "mP": 0.280000
+            "mC": 1.852000,
+            "mB": -0.203000,
+            "mP": 0.472000
         },
-        "Item[4]": {
+        "Item[5]": {
             "Name": "HSV",
             "Type": 4,
             "mEnabled": 1,
             "mR_en": 1,
             "mG_en": 1,
             "mB_en": 1,
-            "mH": -35.240002,
-            "mS": 0.357000,
-            "mV": 0.035000
+            "mH": 0,
+            "mS": 0,
+            "mV": 0
+        },
+        "Item[6]": {
+            "Name": "Edge",
+            "Type": 10,
+            "mEnabled": 1,
+            "mR_en": 1,
+            "mG_en": 1,
+            "mB_en": 1,
+            "mV": 0.445000,
+            "mThreshold": 1.816000,
+            "mDirectional": 1,
+            "mSeparate": 1,
+            "mAntialias": 1,
+            "mDirection": 0.305000,
+            "mFillColor[0]": 0,
+            "mFillColor[1]": 0,
+            "mFillColor[2]": 0
         }
     }
 }

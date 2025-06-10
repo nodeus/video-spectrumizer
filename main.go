@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	Version   = "v1.0.3"
+	Version   = "v1.0.4"
 	BuildUser = "nodeus"
 	BuildTime = "2025"
 )
@@ -38,7 +38,8 @@ type Config struct {
 	ResizeWidth   int     `ini:"width"`
 	ResizeHeight  int     `ini:"height"`
 	ShowFFmpegOut bool    `ini:"verbose-ffmpeg"`
-	ShowProgress  bool    `ini:"progress"` // Новый параметр для отображения прогресса
+	ShowProgress  bool    `ini:"progress"`
+	SaveScr       bool    `ini:"scr"` // Новый параметр для сохранения изображений .scr
 }
 
 const defaultConfigFile = "config.ini"
@@ -183,7 +184,8 @@ func loadDefaultConfig() *Config {
 		ResizeWidth:   256,
 		ResizeHeight:  192,
 		ShowFFmpegOut: true,
-		ShowProgress:  true, // По умолчанию показываем прогресс
+		ShowProgress:  true,  // По умолчанию показываем прогресс
+		SaveScr:       false, // По умолчанию не сохраняем .scr
 	}
 }
 
@@ -220,6 +222,7 @@ func parseFlags(config *Config) {
 	flag.IntVar(&config.ResizeHeight, "height", config.ResizeHeight, "Высота после ресайза")
 	flag.BoolVar(&config.ShowFFmpegOut, "verbose-ffmpeg", config.ShowFFmpegOut, "Показывать вывод FFmpeg")
 	flag.BoolVar(&config.ShowProgress, "progress", config.ShowProgress, "Показывать прогресс обработки")
+	flag.BoolVar(&config.SaveScr, "scr", config.SaveScr, "Сохранять .scr файлы (толко при -cleanup false)")
 
 	// Специальный флаг для указания конфиг-файла (не сохраняется в структуре)
 	var configFile string
@@ -331,6 +334,7 @@ func extractFrames(input, outputDir string, framerate float64, config *Config) {
 }
 
 func processFrames(inputDir, outputDir string, config *Config) {
+	// Получаем список всех PNG-файлов в директории
 	files, err := filepath.Glob(filepath.Join(inputDir, "*.png"))
 	if err != nil {
 		log.Fatalf("Ошибка поиска файлов: %v", err)
@@ -345,15 +349,32 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	startTime := time.Now()
 	fmt.Println()
 
-	// Счетчик для отслеживания прогресса
+	// Определяем, нужно ли сохранять SCR-файлы
+	saveScr := config.SaveScr && !config.DeleteTemp
+	var scrDir string
+
+	if saveScr {
+		// Создаем директорию для SCR-файлов
+		scrDir = filepath.Join(config.TempDir, "scr")
+		createDir(scrDir)
+		log.Printf("Сохранение SCR-файлов в: %s", scrDir)
+	}
+
+	// Переменные для отслеживания прогресса
 	var processedCount int
 	var progressMutex sync.Mutex
+	var wg sync.WaitGroup
 
-	// Канал для ошибок
+	// Канал для обработки ошибок
 	errorChan := make(chan error, len(files))
 
-	// Запускаем горутину для отображения прогресса
+	// Семафор для ограничения количества одновременных задач
+	semaphore := make(chan struct{}, config.Threads)
+
+	// Канал для остановки отображения прогресса
 	progressQuit := make(chan struct{})
+
+	// Запускаем горутину для отображения прогресса (если включено)
 	if config.ShowProgress {
 		go func() {
 			ticker := time.NewTicker(2 * time.Second)
@@ -380,38 +401,56 @@ func processFrames(inputDir, outputDir string, config *Config) {
 		}()
 	}
 
-	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, config.Threads)
-
+	// Обрабатываем каждый файл в отдельной горутине
 	for _, file := range files {
 		wg.Add(1)
-		semaphore <- struct{}{}
+		semaphore <- struct{}{} // Занимаем слот семафора
 
 		go func(inputFile string) {
 			defer wg.Done()
-			defer func() { <-semaphore }()
+			defer func() { <-semaphore }() // Освобождаем слот семафора
 
 			baseName := filepath.Base(inputFile)
 			outputFile := filepath.Join(outputDir, "s"+baseName)
 
-			cmd := exec.Command(
+			// 1. Конвертация в PNG (обязательный шаг)
+			cmdPNG := exec.Command(
 				config.ImgConverter,
 				inputFile,
 				config.ConfigFile,
 				"-p", outputFile,
 			)
 
-			if output, err := cmd.CombinedOutput(); err != nil {
-				errorChan <- fmt.Errorf("ошибка обработки %s: %v\n%s", inputFile, err, string(output))
-			} else {
-				// Увеличиваем счетчик обработанных кадров
-				progressMutex.Lock()
-				processedCount++
-				progressMutex.Unlock()
+			// Выполняем PNG-конвертацию
+			if output, err := cmdPNG.CombinedOutput(); err != nil {
+				errorChan <- fmt.Errorf("ошибка PNG конвертации %s: %v\n%s", inputFile, err, string(output))
+				return // Прекращаем обработку этого файла при ошибке
 			}
+
+			// 2. Конвертация в SCR (дополнительный шаг)
+			if saveScr {
+				scrFile := filepath.Join(scrDir, strings.TrimSuffix(baseName, ".png")+".scr")
+				cmdSCR := exec.Command(
+					config.ImgConverter,
+					inputFile,
+					config.ConfigFile,
+					"-s", scrFile,
+				)
+
+				// Выполняем SCR-конвертацию
+				if output, err := cmdSCR.CombinedOutput(); err != nil {
+					errorChan <- fmt.Errorf("ошибка SCR конвертации %s: %v\n%s", inputFile, err, string(output))
+				}
+			}
+
+			// Увеличиваем счетчик успешно обработанных кадров
+			progressMutex.Lock()
+			processedCount++
+			progressMutex.Unlock()
 		}(file)
 	}
 
+	// Ждем завершения всех горутин
 	wg.Wait()
 
 	// Останавливаем отображение прогресса
@@ -421,14 +460,14 @@ func processFrames(inputDir, outputDir string, config *Config) {
 
 	close(errorChan)
 
-	// Выводим ошибки, если они есть
+	// Обрабатываем ошибки
 	hasErrors := false
 	for err := range errorChan {
 		log.Println(err)
 		hasErrors = true
 	}
 
-	// Финальный отчет
+	// Выводим статистику обработки
 	elapsed := time.Since(startTime).Round(time.Second)
 	fps := float64(totalFrames) / time.Since(startTime).Seconds()
 
@@ -437,7 +476,12 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	fmt.Println()
 
 	if hasErrors {
-		log.Println("\nБыли ошибки при обработке некоторых кадров")
+		log.Println("Были ошибки при обработке некоторых кадров")
+	}
+
+	// Дополнительная информация о SCR-файлах
+	if saveScr {
+		log.Printf("SCR-файлы сохранены в: %s", scrDir)
 	}
 }
 
