@@ -46,7 +46,8 @@ const defaultConfigFile = "config.ini"
 
 func main() {
 	// Выводим версию приложения
-	fmt.Println("Video spectrumizer", Version, "\n")
+	fmt.Println("Video spectrumizer", Version)
+	fmt.Println()
 	//fmt.Println("Version:\t", Version)
 	fmt.Println("Build time:", BuildTime)
 	fmt.Println("Build user:", BuildUser)
@@ -125,7 +126,7 @@ func main() {
 		bufio.NewReader(os.Stdin).ReadBytes('\n')
 	}
 
-	log.Println("Обработка кадров для Spectrum конвертором...")
+	log.Println("Обработка кадров конвертором...")
 	fmt.Println()
 	processFrames(frameDir, processedDir, config)
 
@@ -145,7 +146,14 @@ func main() {
 		fmt.Println()
 	}
 
-	log.Println("Обработка видео завершена!")
+	log.Println("Обработка видео завершена")
+	fmt.Println()
+
+	for i := 5; i > 0; i-- {
+		fmt.Printf("\rПауза: %d сек ", i)
+		time.Sleep(1 * time.Second)
+	}
+	fmt.Print("\rПауза завершена!  ")
 }
 
 // Функция для проверки наличия аудио необходимо наличие ffbrobe по пути
@@ -170,7 +178,7 @@ func checkAudioExists(input string, config *Config) bool {
 func loadDefaultConfig() *Config {
 	return &Config{
 		InputVideo:    "",
-		OutputVideo:   "",
+		OutputVideo:   "output_smzd.mp4",
 		TempDir:       "temp",
 		Framerate:     25.0,
 		ScaleFactor:   8,
@@ -183,7 +191,7 @@ func loadDefaultConfig() *Config {
 		Threads:       runtime.NumCPU(),
 		ResizeWidth:   256,
 		ResizeHeight:  192,
-		ShowFFmpegOut: true,
+		ShowFFmpegOut: false,
 		ShowProgress:  true,  // По умолчанию показываем прогресс
 		SaveScr:       false, // По умолчанию не сохраняем .scr
 	}
@@ -358,6 +366,7 @@ func processFrames(inputDir, outputDir string, config *Config) {
 		scrDir = filepath.Join(config.TempDir, "scr")
 		createDir(scrDir)
 		log.Printf("Сохранение SCR-файлов в: %s", scrDir)
+		fmt.Println()
 	}
 
 	// Переменные для отслеживания прогресса
@@ -404,11 +413,11 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	// Обрабатываем каждый файл в отдельной горутине
 	for _, file := range files {
 		wg.Add(1)
-		semaphore <- struct{}{} // Занимаем слот семафора
+		semaphore <- struct{}{}
 
 		go func(inputFile string) {
 			defer wg.Done()
-			defer func() { <-semaphore }() // Освобождаем слот семафора
+			defer func() { <-semaphore }()
 
 			baseName := filepath.Base(inputFile)
 			outputFile := filepath.Join(outputDir, "s"+baseName)
@@ -421,29 +430,29 @@ func processFrames(inputDir, outputDir string, config *Config) {
 				"-p", outputFile,
 			)
 
-			// Выполняем PNG-конвертацию
 			if output, err := cmdPNG.CombinedOutput(); err != nil {
 				errorChan <- fmt.Errorf("ошибка PNG конвертации %s: %v\n%s", inputFile, err, string(output))
-				return // Прекращаем обработку этого файла при ошибке
+				return
 			}
 
 			// 2. Конвертация в SCR (дополнительный шаг)
 			if saveScr {
-				scrFile := filepath.Join(scrDir, strings.TrimSuffix(baseName, ".png")+".scr")
+				// Убираем расширение .png и префикс 's'
+				scrFileName := strings.TrimSuffix(baseName, ".png") + ".scr"
+				scrFile := filepath.Join(scrDir, scrFileName)
+
+				// Конвертируем из обработанного файла, а не исходного для быстроты обработки
 				cmdSCR := exec.Command(
 					config.ImgConverter,
-					inputFile,
-					config.ConfigFile,
+					outputFile,
 					"-s", scrFile,
 				)
 
-				// Выполняем SCR-конвертацию
 				if output, err := cmdSCR.CombinedOutput(); err != nil {
 					errorChan <- fmt.Errorf("ошибка SCR конвертации %s: %v\n%s", inputFile, err, string(output))
 				}
 			}
 
-			// Увеличиваем счетчик успешно обработанных кадров
 			progressMutex.Lock()
 			processedCount++
 			progressMutex.Unlock()
@@ -470,18 +479,19 @@ func processFrames(inputDir, outputDir string, config *Config) {
 	// Выводим статистику обработки
 	elapsed := time.Since(startTime).Round(time.Second)
 	fps := float64(totalFrames) / time.Since(startTime).Seconds()
-
-	log.Printf("\nОбработка завершена: %d/%d кадров | Затрачено: %v | Скорость: %.1f fps",
-		processedCount, totalFrames, elapsed, fps)
+	fmt.Println()
+	log.Printf("Обработка завершена: %d/%d кадров | Затрачено: %v | Скорость: %.1f fps", processedCount, totalFrames, elapsed, fps)
 	fmt.Println()
 
 	if hasErrors {
 		log.Println("Были ошибки при обработке некоторых кадров")
+		fmt.Println()
 	}
 
 	// Дополнительная информация о SCR-файлах
 	if saveScr {
 		log.Printf("SCR-файлы сохранены в: %s", scrDir)
+		fmt.Println()
 	}
 }
 
