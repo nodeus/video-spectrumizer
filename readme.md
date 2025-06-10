@@ -46,3 +46,5 @@ video-spectrumizer.exe \
 ### Требования:
 1. Установленный в системе FFmpeg и ffprobe (доступный через PATH)
 2. Установленный в системе img2spectrum.exe (доступный через путь в конфиге или в папке проекта)
+
+[Скачать](https://github.com/nodeus/video-spectrumizer/releases)
